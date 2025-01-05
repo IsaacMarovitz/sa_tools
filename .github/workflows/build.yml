@@ -27,7 +27,7 @@ jobs:
         run: dotnet restore
 
       - name: Build solution
-        run: dotnet build --configuration Release --runtime win-${{ matrix.arch }} --verbosity minimal
+        run: dotnet publish --configuration Release --runtime win-${{ matrix.arch }} --output ${{ github.workspace }}\output --self-contained false
 
       - name: Get the latest numeric tag
         id: get_tag
