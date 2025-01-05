@@ -1,0 +1,77 @@
+name: Build and Deploy SA Tools
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Build SA Tools
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: ["x86", "x64"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Restore NuGet packages
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --configuration Release --runtime win-${{ matrix.arch }} --verbosity minimal
+
+      - name: Get the latest numeric tag
+        id: get_tag
+        run: |
+          # Get the latest tag as a single number
+          latest_tag=$(git describe --tags --abbrev=0 || echo "0")
+          echo "Latest tag: $latest_tag"
+          
+          # Increment the tag
+          new_tag=$((latest_tag + 1))
+          echo "New tag: $new_tag"
+          echo "new_tag=$new_tag" >> $GITHUB_ENV
+
+      - name: Generate SA Tools version file
+        run: |
+          echo ${{ env.new_tag }} > "${{ github.workspace }}\satoolsver.txt"
+
+      - name: Build SA Tools
+        run: buildSATools
+
+      - name: Compress output
+        run: |
+          cd ${{ github.workspace }}\output
+          7z a "${{ github.workspace }}\SA.Tools.${{ matrix.platform }}.7z" * -mx9
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: SA Tools ${{ matrix.platform }}
+          path: ${{ github.workspace }}\SA.Tools.${{ matrix.platform }}.7z
+
+  deploy:
+    name: Deploy to GitHub Releases
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: windows-latest
+    steps:
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: "${{ env.new_tag }}"
+          release_name: "${{ env.new_tag }}"
+          body: ${{ github.event.head_commit.message }}
+          artifacts: |
+            C:\projects\sa-tools\SA.Tools.x64.7z
+            C:\projects\sa-tools\SA.Tools.x86.7z
