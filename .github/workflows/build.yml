@@ -23,11 +23,8 @@ jobs:
         with:
           dotnet-version: '8.x'
 
-      - name: Restore NuGet packages
-        run: dotnet restore
-
-      - name: Build solution
-        run: dotnet publish --configuration Release --runtime win-${{ matrix.arch }} --output ${{ github.workspace }}\output --self-contained false
+      - name: Publish solution
+        run: dotnet publish --configuration Release --runtime win-${{ matrix.arch }} --self-contained false
 
       - name: Get the latest numeric tag
         id: get_tag
